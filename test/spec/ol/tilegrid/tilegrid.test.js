@@ -616,21 +616,21 @@ describe('ol.tilegrid.TileGrid', function () {
       const tileCoord = [5, 11, 21];
       const zs = [];
       const tileRanges = [];
-      tileGrid.forEachTileCoordParentTileRange(tileCoord, function (
-        z,
-        tileRange
-      ) {
-        zs.push(z);
-        tileRanges.push(
-          new TileRange(
-            tileRange.minX,
-            tileRange.maxX,
-            tileRange.minY,
-            tileRange.maxY
-          )
-        );
-        return false;
-      });
+      tileGrid.forEachTileCoordParentTileRange(
+        tileCoord,
+        function (z, tileRange) {
+          zs.push(z);
+          tileRanges.push(
+            new TileRange(
+              tileRange.minX,
+              tileRange.maxX,
+              tileRange.minY,
+              tileRange.maxY
+            )
+          );
+          return false;
+        }
+      );
 
       expect(zs.length).to.eql(5);
       expect(tileRanges.length).to.eql(5);
@@ -674,7 +674,7 @@ describe('ol.tilegrid.TileGrid', function () {
     });
 
     it('returns the correct resolution at the equator', function () {
-      // @see http://msdn.microsoft.com/en-us/library/aa940990.aspx
+      // @see https://docs.microsoft.com/en-us/bingmaps/articles/understanding-scale-and-resolution
       expect(tileGrid.getResolution(0)).to.roughlyEqual(156543.04, 1e-2);
       expect(tileGrid.getResolution(1)).to.roughlyEqual(78271.52, 1e-2);
       expect(tileGrid.getResolution(2)).to.roughlyEqual(39135.76, 1e-2);
@@ -1061,14 +1061,14 @@ describe('ol.tilegrid.TileGrid', function () {
       const zs = [];
       const tileRanges = [];
 
-      tileGrid.forEachTileCoordParentTileRange([3, 7, 3], function (
-        z,
-        tileRange
-      ) {
-        zs.push(z);
-        tileRanges.push(tileRange);
-        return false;
-      });
+      tileGrid.forEachTileCoordParentTileRange(
+        [3, 7, 3],
+        function (z, tileRange) {
+          zs.push(z);
+          tileRanges.push(tileRange);
+          return false;
+        }
+      );
 
       expect(zs.length).to.eql(3);
       expect(tileRanges.length).to.eql(3);
@@ -1178,5 +1178,58 @@ describe('ol.tilegrid.TileGrid', function () {
       expect(tileGrid.getZForResolution(100, -1)).to.eql(3);
       expect(tileGrid.getZForResolution(50, -1)).to.eql(3);
     });
+  });
+
+  describe('getTileRangeForTileCoordAndZ()', function () {
+    const tileGrid = createForExtent(
+      getProjection('EPSG:3857').getExtent(),
+      22
+    );
+
+    it('can be used to get the child tile range', function () {
+      const range = tileGrid.getTileRangeForTileCoordAndZ([0, 0, 0], 1);
+      expect(range.minX).to.be(0);
+      expect(range.maxX).to.be(1);
+      expect(range.minY).to.be(0);
+      expect(range.maxY).to.be(1);
+    });
+
+    it('can be used to get the range of a deeper level', function () {
+      const range = tileGrid.getTileRangeForTileCoordAndZ([0, 0, 0], 3);
+      expect(range.minX).to.be(0);
+      expect(range.maxX).to.be(7);
+      expect(range.minY).to.be(0);
+      expect(range.maxY).to.be(7);
+    });
+
+    it('can be used to get the parent tile range', function () {
+      const range = tileGrid.getTileRangeForTileCoordAndZ([1, 1, 0], 0);
+      expect(range.minX).to.be(0);
+      expect(range.maxX).to.be(0);
+      expect(range.minY).to.be(0);
+      expect(range.maxY).to.be(0);
+    });
+
+    it('can be used to get the range of a shallower level', function () {
+      const range = tileGrid.getTileRangeForTileCoordAndZ([3, 1, 6], 0);
+      expect(range.minX).to.be(0);
+      expect(range.maxX).to.be(0);
+      expect(range.minY).to.be(0);
+      expect(range.maxY).to.be(0);
+    });
+
+    const tileCoord = [15, 6239, 11751];
+    tileGrid.forEachTileCoordParentTileRange(
+      tileCoord,
+      function (z, tileRange) {
+        it(`works for level ${z}`, function () {
+          const range = tileGrid.getTileRangeForTileCoordAndZ(tileCoord, z);
+          expect(range.minX).to.be(tileRange.minX);
+          expect(range.maxX).to.be(tileRange.maxX);
+          expect(range.minY).to.be(tileRange.minY);
+          expect(range.maxY).to.be(tileRange.maxY);
+        });
+      }
+    );
   });
 });

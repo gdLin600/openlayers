@@ -10,6 +10,11 @@ import TileState from '../../TileState.js';
 import VectorTileRenderType from '../../layer/VectorTileRenderType.js';
 import ViewHint from '../../ViewHint.js';
 import {
+  HIT_DETECT_RESOLUTION,
+  createHitDetectionImageData,
+  hitDetect,
+} from '../../render/canvas/hitdetect.js';
+import {
   apply as applyTransform,
   create as createTransform,
   multiply,
@@ -28,10 +33,6 @@ import {
   intersects,
 } from '../../extent.js';
 import {clear} from '../../obj.js';
-import {
-  createHitDetectionImageData,
-  hitDetect,
-} from '../../render/canvas/hitdetect.js';
 import {
   getSquaredTolerance as getSquaredRenderTolerance,
   renderFeature,
@@ -60,7 +61,6 @@ const IMAGE_REPLAYS = {
  * @type {!Object<string, Array<import("../../render/canvas/BuilderType.js").default>>}
  */
 const VECTOR_REPLAYS = {
-  'image': [ReplayType.DEFAULT],
   'hybrid': [ReplayType.IMAGE, ReplayType.TEXT, ReplayType.DEFAULT],
   'vector': [
     ReplayType.POLYGON,
@@ -150,7 +150,7 @@ class CanvasVectorTileLayerRenderer extends CanvasTileLayerRenderer {
     }
     if (state === TileState.LOADED || state === TileState.ERROR) {
       this.updateExecutorGroup_(tile, pixelRatio, projection);
-      if (this.tileImageNeedsRender_(tile, pixelRatio, projection)) {
+      if (this.tileImageNeedsRender_(tile)) {
         render = true;
         if (queue) {
           this.renderTileImageQueue_[tileUid] = tile;
@@ -550,16 +550,15 @@ class CanvasVectorTileLayerRenderer extends CanvasTileLayerRenderer {
           const tileSize = toSize(
             tileGrid.getTileSize(tileGrid.getZForResolution(resolution))
           );
-          const size = [tileSize[0] / 2, tileSize[1] / 2];
           const rotation = this.renderedRotation_;
           const transforms = [
             this.getRenderTransform(
               tileGrid.getTileCoordCenter(tile.wrappedTileCoord),
               resolution,
               0,
-              0.5,
-              size[0],
-              size[1],
+              HIT_DETECT_RESOLUTION,
+              tileSize[0] * HIT_DETECT_RESOLUTION,
+              tileSize[1] * HIT_DETECT_RESOLUTION,
               0
             ),
           ];
@@ -686,9 +685,6 @@ class CanvasVectorTileLayerRenderer extends CanvasTileLayerRenderer {
 
     const layer = /** @type {import("../../layer/VectorTile.js").default} */ (this.getLayer());
     const renderMode = layer.getRenderMode();
-    if (renderMode === VectorTileRenderType.IMAGE) {
-      return this.container;
-    }
 
     const source = layer.getSource();
     // Unqueue tiles from the image queue when we don't need any more
@@ -837,13 +833,14 @@ class CanvasVectorTileLayerRenderer extends CanvasTileLayerRenderer {
 
   /**
    * @param {import("../../VectorRenderTile.js").default} tile Tile.
-   * @param {number} pixelRatio Pixel ratio.
-   * @param {import("../../proj/Projection.js").default} projection Projection.
    * @return {boolean} A new tile image was rendered.
    * @private
    */
-  tileImageNeedsRender_(tile, pixelRatio, projection) {
+  tileImageNeedsRender_(tile) {
     const layer = /** @type {import("../../layer/VectorTile.js").default} */ (this.getLayer());
+    if (layer.getRenderMode() === VectorTileRenderType.VECTOR) {
+      return false;
+    }
     const replayState = tile.getReplayState(layer);
     const revision = layer.getRevision();
     const sourceZ = tile.sourceZ;
